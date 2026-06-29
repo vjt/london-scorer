@@ -1,0 +1,32 @@
+# london-scorer configuration
+
+# Commute target + windows (real journeys, morning and evening)
+destination: "King's Cross"        # TfL station; resolved to a StopPoint id
+am_arrive_by: "09:30"              # be at the KX office by this time
+pm_depart_at: "17:30"             # leave KX at this time
+office_walk_min: 12               # KX station -> desk, added when a journey ends at the station
+commute_threshold_min: 45         # keep districts with door-to-door <= this (AM)
+north_only: true                  # keep only stations north of KX (latitude >= KX)
+
+# Lines that serve King's Cross / St Pancras / Moorgate (seed for station discovery)
+kx_lines:
+  - thameslink
+  - great-northern          # ECML / King's Cross
+  - hertford-loop
+  - northern
+  - piccadilly
+  - victoria
+
+# Schools
+school_radius_km: 2.0             # consider schools within this of the district centroid
+school_phases: [primary, secondary]
+
+# Optional composite score weights (raw columns are always emitted).
+# House is NOT in listings; it is approximated from EPC stock + ONS rents.
+weights:
+  commute: 0.25
+  schools: 0.30
+  house: 0.20        # EPC: median floor area, % detached, rooms
+  crime: 0.10
+  demographics: 0.05
+  fttp: 0.10

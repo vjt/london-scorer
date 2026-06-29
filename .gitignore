@@ -1,0 +1,16 @@
+# Secrets & local-only — NEVER commit
+.env
+
+# Cached API responses + bulk downloads + generated output
+cache/
+data/
+out/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+
+.DS_Store
