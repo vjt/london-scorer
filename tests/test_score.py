@@ -63,8 +63,8 @@ def test_secondary_good_added_to_schools():
 
 def test_none_values_skipped():
     """None values for a dimension should be treated as missing for that row."""
-    rows = [{"district": "A", "epc_median_sqm": None},
-            {"district": "B", "epc_median_sqm": 75.0}]
+    rows = [{"district": "A", "epc_band_score": None},
+            {"district": "B", "epc_band_score": 5.0}]
     out = score.normalise_and_score(rows, {"house": 1.0})
     a = next(r for r in out if r["district"] == "A")
     b = next(r for r in out if r["district"] == "B")

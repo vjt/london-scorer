@@ -79,9 +79,9 @@ def main() -> None:
     fetchers = [
         ("crime",        lambda r: crime.fetch(r)),
         ("schools",      lambda r: schools.fetch(r, schools_df) if schools_df is not None else {}),
-        ("epc",          lambda r: epc.fetch(r, epc_token) if epc_token else {}),
+        ("epc",          lambda r: epc.fetch(r, epc_token)),
         ("demographics", lambda r: demographics.fetch(r, lambda la: _la_code_lookup(la, r.get("district")))),
-        ("broadband",    lambda r: broadband.fetch(r, broadband_df) if broadband_df is not None else {}),
+        ("broadband",    lambda r: broadband.fetch(r, broadband_df)),
     ]
 
     for row in rows:
@@ -90,6 +90,33 @@ def main() -> None:
                 row.update(fn(row))
             except Exception as exc:
                 print(f"⚠ {name} failed for {row['district']}: {exc}")
+
+    # ------------------------------------------------------------------ #
+    # Fill NaN gaps: use LA-level median for remaining empty cells        #
+    # ------------------------------------------------------------------ #
+    _fill_cols = ["epc_band_score", "fttp_pct", "pct_white", "pct_christian_or_none"]
+    for col in _fill_cols:
+        # Build LA → median of known values
+        la_vals = {}
+        for row in rows:
+            la = row.get("local_authority", "")
+            v = row.get(col)
+            if v is not None:
+                la_vals.setdefault(la, []).append(v)
+        la_medians = {la: sorted(vs)[len(vs) // 2] for la, vs in la_vals.items() if vs}
+        # Also compute global median
+        all_vals = [v for vs in la_vals.values() for v in vs]
+        global_median = sorted(all_vals)[len(all_vals) // 2] if all_vals else None
+
+        filled = 0
+        for row in rows:
+            if row.get(col) is None:
+                la = row.get("local_authority", "")
+                row[col] = la_medians.get(la, global_median)
+                if row[col] is not None:
+                    filled += 1
+        if filled:
+            print(f"  Filled {filled} {col} gaps with LA/global median")
 
     # ------------------------------------------------------------------ #
     # Score and write output                                              #

@@ -15,7 +15,7 @@ from typing import Any
 _DIM_MAP: dict[str, tuple[Any, bool]] = {
     "commute":      ("commute_am",                        True),
     "schools":      (("primary_good", "secondary_good"),  False),
-    "house":        ("epc_median_sqm",                    False),
+    "house":        ("epc_band_score",                    False),
     "crime":        ("crime_1mi_count",                   True),
     "fttp":         ("fttp_pct",                          False),
     "demographics": ("pct_white",                         False),
