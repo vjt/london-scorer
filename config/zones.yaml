@@ -5,7 +5,7 @@ destination: "King's Cross"        # TfL station; resolved to a StopPoint id
 am_arrive_by: "09:30"              # be at the KX office by this time
 pm_depart_at: "17:30"             # leave KX at this time
 office_walk_min: 12               # KX station -> desk, added when a journey ends at the station
-commute_threshold_min: 45         # keep districts with door-to-door <= this (AM)
+commute_threshold_min: 60         # keep districts with door-to-door <= this (AM)
 north_only: true                  # keep only stations north of KX (latitude >= KX)
 
 # Lines that serve King's Cross / St Pancras / Moorgate (seed for station discovery)

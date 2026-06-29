@@ -1,19 +1,60 @@
+"""Schools fetcher: GIAS establishment data + Ofsted inspection ratings."""
+
 import pandas as pd
 
-GOOD = {"Outstanding", "Good"}
+# Ofsted "good" = Outstanding (1) or Good (2)
+GOOD_NUMERIC = {"1", "2"}
+GOOD_TEXT = {"Outstanding", "Good"}
+
 
 def load(gias_csv, ofsted_csv):
+    """Load and join GIAS schools + Ofsted ratings into a compact DataFrame.
+
+    Returns DataFrame with columns [outcode, phase, rating] where rating is
+    normalised to "Outstanding" / "Good" / "Requires improvement" / "Inadequate".
+    """
     g = pd.read_csv(gias_csv, encoding="latin-1", low_memory=False)
     g = g[g["EstablishmentStatus (name)"] == "Open"]
     g["outcode"] = g["Postcode"].astype(str).str.split().str[0]
     g["phase"] = g["PhaseOfEducation (name)"].str.lower().map(
         lambda s: "primary" if "primary" in str(s) else ("secondary" if "secondary" in str(s) else "other"))
+
     o = pd.read_csv(ofsted_csv, encoding="latin-1", low_memory=False)
-    o = o.rename(columns={"Overall effectiveness": "rating"})[["URN", "rating"]]
+
+    # The Ofsted column name varies between exports — try both known variants
+    rating_col = None
+    for candidate in ["Overall effectiveness", "Latest OEIF overall effectiveness"]:
+        if candidate in o.columns:
+            rating_col = candidate
+            break
+    if rating_col is None:
+        # Fallback: find any column with "overall" and "effectiveness" in it
+        for col in o.columns:
+            if "overall" in col.lower() and "effect" in col.lower():
+                rating_col = col
+                break
+
+    if rating_col:
+        o = o.rename(columns={rating_col: "rating"})[["URN", "rating"]]
+        # Normalise numeric Ofsted grades to text
+        _GRADE_MAP = {"1": "Outstanding", "2": "Good", "3": "Requires improvement", "4": "Inadequate"}
+        o["rating"] = o["rating"].astype(str).str.strip().map(
+            lambda v: _GRADE_MAP.get(v, v))
+    else:
+        o = o[["URN"]].copy()
+        o["rating"] = None
+
     m = g.merge(o, on="URN", how="left")
     return m[["outcode", "phase", "rating"]]
 
+
 def fetch(row, schools_df):
-    d = schools_df[(schools_df["outcode"] == row["district"]) & (schools_df["rating"].isin(GOOD))]
-    return {"primary_good": int((d["phase"] == "primary").sum()),
-            "secondary_good": int((d["phase"] == "secondary").sum())}
+    """Count Good/Outstanding schools per phase in a district."""
+    d = schools_df[
+        (schools_df["outcode"] == row["district"])
+        & (schools_df["rating"].isin(GOOD_TEXT))
+    ]
+    return {
+        "primary_good": int((d["phase"] == "primary").sum()),
+        "secondary_good": int((d["phase"] == "secondary").sum()),
+    }
