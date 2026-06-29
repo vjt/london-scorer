@@ -20,7 +20,7 @@ cp .env.example .env   # then fill in keys
 
 Keys (all free):
 - `TFL_APP_KEY` — TfL Unified API, https://api-portal.tfl.gov.uk/ (journey planning).
-- `EPC_EMAIL` + `EPC_API_KEY` — EPC Open Data, https://epc.opendatacommunities.org/ (housing stock).
+- `EPC_BEARER_TOKEN` — EPC "Find Energy Certificate" API via a gov.uk account (housing stock).
 
 Other sources need no key.
 
