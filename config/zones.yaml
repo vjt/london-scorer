@@ -11,8 +11,7 @@ north_only: true                  # keep only stations north of KX (latitude >= 
 # Lines that serve King's Cross / St Pancras / Moorgate (seed for station discovery)
 kx_lines:
   - thameslink
-  - great-northern          # ECML / King's Cross
-  - hertford-loop
+  - great-northern          # ECML / King's Cross (includes Hertford Loop)
   - northern
   - piccadilly
   - victoria

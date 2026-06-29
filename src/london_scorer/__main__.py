@@ -7,7 +7,7 @@ Runs the full pipeline:
 
 import sys
 from pathlib import Path
-from . import config, discovery, score, output
+from . import config, discovery, geo, score, output
 from .fetchers import crime, schools, epc, demographics, broadband
 
 
@@ -16,7 +16,7 @@ _MD_PATH = str(_OUT_DIR / "zone-scorecard.md")
 _CSV_PATH = str(_OUT_DIR / "zone-scorecard.csv")
 
 # Next Thursday (adjust as needed; will be made configurable later)
-_DATE = "20260703"
+_DATE = "20260702"
 
 
 def main() -> None:
@@ -61,14 +61,26 @@ def main() -> None:
 
     epc_token = env.get("EPC_BEARER_TOKEN", "")
 
+    # Build a GSS code lookup cache for demographics
+    _gss_cache = {}
+
+    def _la_code_lookup(la_name, district=None):
+        """Resolve LA name → ONS GSS code via postcodes.io random-postcode endpoint."""
+        if la_name in _gss_cache:
+            return _gss_cache[la_name]
+        code = geo.la_gss_code(district) if district else None
+        if code:
+            _gss_cache[la_name] = code
+        return code
+
     # ------------------------------------------------------------------ #
     # Fetch per-district dimensions; a failing fetcher never kills the run #
     # ------------------------------------------------------------------ #
     fetchers = [
         ("crime",        lambda r: crime.fetch(r)),
         ("schools",      lambda r: schools.fetch(r, schools_df) if schools_df is not None else {}),
-        ("epc",          lambda r: epc.fetch(r, epc_token)),
-        ("demographics", lambda r: demographics.fetch(r, lambda la: la)),  # LA code lookup TBD
+        ("epc",          lambda r: epc.fetch(r, epc_token) if epc_token else {}),
+        ("demographics", lambda r: demographics.fetch(r, lambda la: _la_code_lookup(la, r.get("district")))),
         ("broadband",    lambda r: broadband.fetch(r, broadband_df) if broadband_df is not None else {}),
     ]
 

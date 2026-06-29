@@ -10,16 +10,22 @@ import pandas as pd
 # Columns shown in the Markdown table (in order); extra columns go to CSV only.
 _MD_COLUMNS = [
     "district",
+    "local_authority",
     "commute_am",
     "commute_pm",
     "primary_good",
     "secondary_good",
     "crime_1mi_count",
     "epc_median_sqm",
+    "pct_detached",
     "fttp_pct",
     "pct_white",
+    "pct_christian_or_none",
     "score",
 ]
+
+# Columns to exclude from output entirely (nested dicts, internal state)
+_EXCLUDE = {"centroid"}
 
 
 def write(rows: list[dict], md_path: str, csv_path: str) -> None:
@@ -37,6 +43,11 @@ def write(rows: list[dict], md_path: str, csv_path: str) -> None:
     sorted_rows = sorted(rows, key=lambda r: r.get("score", 0.0), reverse=True)
 
     df = pd.DataFrame(sorted_rows)
+
+    # Drop internal columns (nested dicts etc.)
+    for col in _EXCLUDE:
+        if col in df.columns:
+            df = df.drop(columns=[col])
 
     # ---- CSV: all columns ----
     Path(csv_path).parent.mkdir(parents=True, exist_ok=True)

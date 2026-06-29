@@ -3,9 +3,12 @@ from .stations import KX
 
 def journey_minutes(from_lat, from_lon, app_key, when, time_is, date):
     url = f"https://api.tfl.gov.uk/Journey/JourneyResults/{from_lat},{from_lon}/to/{KX['lat']},{KX['lon']}"
-    data = http.get_json(url, params={"app_key": app_key, "time": when,
-                                      "timeIs": time_is, "date": date},
-                         cache_key=f"jp:{from_lat},{from_lon}:{when}:{time_is}:{date}")
+    try:
+        data = http.get_json(url, params={"app_key": app_key, "time": when,
+                                          "timeIs": time_is, "date": date},
+                             cache_key=f"jp:{from_lat},{from_lon}:{when}:{time_is}:{date}")
+    except Exception:
+        return None
     js = data.get("journeys") or []
     return min((j["duration"] for j in js), default=None)
 

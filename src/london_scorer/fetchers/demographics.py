@@ -1,67 +1,93 @@
+"""Census 2021 ethnicity + religion shares via Nomis API (LA level)."""
+
 from .. import http
 
-# Nomis Census 2021 dataset IDs
-# NM_2041_1 = TS021 Ethnic group (20 categories)
-# NM_2051_1 = TS030 Religion (10 categories)
-_TS021_URL = "https://www.nomisweb.co.uk/api/v01/dataset/NM_2041_1.jsonstat.json"
-_TS030_URL = "https://www.nomisweb.co.uk/api/v01/dataset/NM_2051_1.jsonstat.json"
+# Nomis dataset IDs for Census 2021
+_TS021_ID = "NM_2041_1"  # Ethnic group
+_TS030_ID = "NM_2049_1"  # Religion
 
-_TS021_GEOGRAPHY = "geography"
-_TS030_GEOGRAPHY = "geography"
+_BASE = "https://www.nomisweb.co.uk/api/v01/dataset"
 
 
-def _find_value(obs, dim_key, label):
-    """Return the numeric value for a given category label in an obs list."""
-    for item in obs:
-        dims = item.get("dimensions", {})
-        for key, val in dims.items():
-            if val.get("value") == label:
-                return item["value"]
-    return None
+def _nomis_query(dataset_id, geography, cache_tag):
+    """Query Nomis and return list of obs dicts."""
+    url = f"{_BASE}/{dataset_id}.data.json"
+    data = http.get_json(
+        url,
+        params={"date": "latest", "geography": geography, "measures": "20100"},
+        cache_key=f"nomis:{cache_tag}:{geography}",
+    )
+    return data.get("obs", [])
+
+
+def _obs_to_map(obs):
+    """Parse Nomis obs into {description_keyword: value}.
+
+    Nomis descriptions look like:
+      "Persons Value for Camden (geography), White (Ethnic group) for 2021 ..."
+    We extract the category between the first ", " and the next " (" to get "White".
+    The total row has no comma category — its desc starts with "Persons Value for ... (geography) for ...".
+    """
+    result = {}
+    for o in obs:
+        val_block = o.get("obs_value", {})
+        value = val_block.get("value")
+        desc = val_block.get("description", "")
+        if value is None:
+            continue
+        # Try to extract category from desc
+        # Pattern: "... (geography), CATEGORY (DimName) for ..."
+        # or total: "... (geography) for ..."
+        parts = desc.split("(geography)")
+        if len(parts) < 2:
+            continue
+        after = parts[1].strip()
+        if after.startswith(", "):
+            # Has a category
+            cat_part = after[2:]  # strip ", "
+            # Category is everything before the next " ("
+            paren_idx = cat_part.find(" (")
+            if paren_idx > 0:
+                cat = cat_part[:paren_idx].strip().lower()
+            else:
+                cat = cat_part.strip().lower()
+            result[cat] = value
+        elif after.startswith(" for ") or after.startswith("for "):
+            result["_total"] = value
+    return result
 
 
 def fetch(district_row, la_code_lookup):
-    """Fetch Census 2021 ethnicity (TS021) and religion (TS030) shares for a LA.
-
-    Args:
-        district_row: dict with at least a "local_authority" key.
-        la_code_lookup: callable(la_name) -> ONS code string (e.g. "E07000241").
-
-    Returns:
-        dict with "pct_white" and "pct_christian_or_none" as floats (or None on error).
-    """
+    """Fetch Census 2021 ethnicity + religion shares for a local authority."""
     la_name = district_row["local_authority"]
     la_code = la_code_lookup(la_name)
+
+    if not la_code:
+        return {"pct_white": None, "pct_christian_or_none": None}
 
     pct_white = None
     pct_christian_or_none = None
 
     # --- TS021: Ethnicity ---
     try:
-        eth_data = http.get_json(
-            f"{_TS021_URL}?TS021&geography={la_code}",
-            cache_key=f"nomis:TS021:{la_code}",
-        )
-        obs = eth_data.get("obs", [])
-        white = _find_value(obs, "c2021_eth_20", "White")
-        total = _find_value(obs, "c2021_eth_20", "Total")
-        if white is not None and total:
-            pct_white = white / total
+        obs = _nomis_query(_TS021_ID, la_code, "TS021")
+        m = _obs_to_map(obs)
+        total = m.get("_total")
+        white = m.get("white")
+        if white is not None and total and total > 0:
+            pct_white = round(white / total, 4)
     except Exception:
         pass
 
     # --- TS030: Religion ---
     try:
-        rel_data = http.get_json(
-            f"{_TS030_URL}?TS030&geography={la_code}",
-            cache_key=f"nomis:TS030:{la_code}",
-        )
-        obs = rel_data.get("obs", [])
-        christian = _find_value(obs, "c2021_rel_10", "Christian")
-        no_religion = _find_value(obs, "c2021_rel_10", "No religion")
-        total = _find_value(obs, "c2021_rel_10", "Total")
-        if christian is not None and no_religion is not None and total:
-            pct_christian_or_none = (christian + no_religion) / total
+        obs = _nomis_query(_TS030_ID, la_code, "TS030")
+        m = _obs_to_map(obs)
+        total = m.get("_total")
+        christian = m.get("christian")
+        no_rel = m.get("no religion")
+        if christian is not None and no_rel is not None and total and total > 0:
+            pct_christian_or_none = round((christian + no_rel) / total, 4)
     except Exception:
         pass
 
