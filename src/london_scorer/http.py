@@ -1,4 +1,4 @@
-import hashlib, json
+import hashlib, json, time
 from pathlib import Path
 import requests
 
@@ -13,11 +13,17 @@ def get_json(url, params=None, headers=None, cache_key=None):
     f = _key(cache_key or url, params, ".json")
     if f.exists():
         return json.loads(f.read_text())
-    r = requests.get(url, params=params, headers=headers, timeout=30)
-    r.raise_for_status()
-    data = r.json()
-    f.write_text(json.dumps(data))
-    return data
+    for attempt in range(3):
+        r = requests.get(url, params=params, headers=headers, timeout=30)
+        if r.status_code == 429:
+            wait = 2 ** attempt
+            time.sleep(wait)
+            continue
+        r.raise_for_status()
+        data = r.json()
+        f.write_text(json.dumps(data))
+        return data
+    r.raise_for_status()  # raise on final 429
 
 def get_text(url, params=None, headers=None, cache_key=None):
     CACHE_DIR.mkdir(parents=True, exist_ok=True)

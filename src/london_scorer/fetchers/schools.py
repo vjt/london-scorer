@@ -49,12 +49,31 @@ def load(gias_csv, ofsted_csv):
 
 
 def fetch(row, schools_df):
-    """Count Good/Outstanding schools per phase in a district."""
-    d = schools_df[
-        (schools_df["outcode"] == row["district"])
-        & (schools_df["rating"].isin(GOOD_TEXT))
-    ]
+    """Schools quality metric for a district.
+
+    Returns raw counts + a composite quality score:
+      school_quality = 3 × has_outstanding + 2 × has_good_secondary + 1 × has_good_primary
+    This rewards QUALITY (having at least one Outstanding school and secondary
+    options) over raw COUNT (which favours dense urban areas).
+    """
+    district = row["district"]
+    all_schools = schools_df[schools_df["outcode"] == district]
+    good = all_schools[all_schools["rating"].isin(GOOD_TEXT)]
+
+    primary_good = int((good["phase"] == "primary").sum())
+    secondary_good = int((good["phase"] == "secondary").sum())
+
+    # Quality components
+    has_outstanding = int((all_schools["rating"] == "Outstanding").any())
+    has_good_secondary = min(secondary_good, 3)  # cap at 3, diminishing returns
+    has_good_primary = min(primary_good, 5)      # cap at 5
+
+    # Composite: outstanding is worth a lot, secondary options matter, primary caps
+    school_quality = 3.0 * has_outstanding + 2.0 * has_good_secondary + 1.0 * has_good_primary
+
     return {
-        "primary_good": int((d["phase"] == "primary").sum()),
-        "secondary_good": int((d["phase"] == "secondary").sum()),
+        "primary_good": primary_good,
+        "secondary_good": secondary_good,
+        "has_outstanding": has_outstanding,
+        "school_quality": round(school_quality, 1),
     }

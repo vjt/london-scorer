@@ -15,7 +15,6 @@ _OUT_DIR = Path("out")
 _MD_PATH = str(_OUT_DIR / "zone-scorecard.md")
 _CSV_PATH = str(_OUT_DIR / "zone-scorecard.csv")
 
-# Next Thursday (adjust as needed; will be made configurable later)
 _DATE = "20260702"
 
 
@@ -57,15 +56,16 @@ def main() -> None:
         broadband_df = broadband.load("data/ofcom.csv")
         print(f"Broadband data loaded ({len(broadband_df)} rows)")
     except Exception as exc:
-        print(f"⚠ Broadband data not available: {exc}")
+        print(f"⚠ Broadband bulk CSV not available, using LA-level estimates")
 
     epc_token = env.get("EPC_BEARER_TOKEN", "")
+    if not epc_token:
+        print("⚠ EPC_BEARER_TOKEN not set — house size data will be missing")
 
     # Build a GSS code lookup cache for demographics
     _gss_cache = {}
 
     def _la_code_lookup(la_name, district=None):
-        """Resolve LA name → ONS GSS code via postcodes.io random-postcode endpoint."""
         if la_name in _gss_cache:
             return _gss_cache[la_name]
         code = geo.la_gss_code(district) if district else None
@@ -74,7 +74,7 @@ def main() -> None:
         return code
 
     # ------------------------------------------------------------------ #
-    # Fetch per-district dimensions; a failing fetcher never kills the run #
+    # Fetch per-district dimensions                                       #
     # ------------------------------------------------------------------ #
     fetchers = [
         ("crime",        lambda r: crime.fetch(r)),
@@ -84,19 +84,21 @@ def main() -> None:
         ("broadband",    lambda r: broadband.fetch(r, broadband_df)),
     ]
 
-    for row in rows:
+    for i, row in enumerate(rows):
+        print(f"\r  Fetching dimensions: {i+1}/{len(rows)} ({row['district']}) …", end="", flush=True)
         for name, fn in fetchers:
             try:
                 row.update(fn(row))
             except Exception as exc:
-                print(f"⚠ {name} failed for {row['district']}: {exc}")
+                print(f"\n⚠ {name} failed for {row['district']}: {exc}")
+    print()
 
     # ------------------------------------------------------------------ #
-    # Fill NaN gaps: use LA-level median for remaining empty cells        #
+    # Fill gaps with LA-level medians (honest: for demographics + FTTP)   #
     # ------------------------------------------------------------------ #
-    _fill_cols = ["epc_band_score", "fttp_pct", "pct_white", "pct_christian_or_none"]
+    _fill_cols = ["fttp_pct", "pct_white", "pct_christian_or_none",
+                  "epc_median_sqm", "pct_detached", "median_rooms", "school_quality"]
     for col in _fill_cols:
-        # Build LA → median of known values
         la_vals = {}
         for row in rows:
             la = row.get("local_authority", "")
@@ -104,19 +106,24 @@ def main() -> None:
             if v is not None:
                 la_vals.setdefault(la, []).append(v)
         la_medians = {la: sorted(vs)[len(vs) // 2] for la, vs in la_vals.items() if vs}
-        # Also compute global median
         all_vals = [v for vs in la_vals.values() for v in vs]
-        global_median = sorted(all_vals)[len(all_vals) // 2] if all_vals else None
+        global_median = sorted(all_vals)[len(all_vals) // 2] if all_vals else 0
 
         filled = 0
         for row in rows:
             if row.get(col) is None:
                 la = row.get("local_authority", "")
                 row[col] = la_medians.get(la, global_median)
-                if row[col] is not None:
-                    filled += 1
+                filled += 1
         if filled:
             print(f"  Filled {filled} {col} gaps with LA/global median")
+
+    # ------------------------------------------------------------------ #
+    # Mark low-confidence EPC (n < 10)                                    #
+    # ------------------------------------------------------------------ #
+    low_conf = sum(1 for r in rows if r.get("epc_n", 0) < 10)
+    if low_conf:
+        print(f"  ⚠ {low_conf} districts have epc_n < 10 (low confidence house data)")
 
     # ------------------------------------------------------------------ #
     # Score and write output                                              #

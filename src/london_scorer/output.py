@@ -11,17 +11,20 @@ import pandas as pd
 _MD_COLUMNS = [
     "district",
     "local_authority",
+    "score",
     "commute_am",
     "commute_pm",
+    "epc_median_sqm",
+    "pct_detached",
+    "median_rooms",
+    "epc_n",
+    "school_quality",
+    "has_outstanding",
     "primary_good",
     "secondary_good",
     "crime_1mi_count",
-    "epc_band_score",
-    "epc_n",
     "fttp_pct",
     "pct_white",
-    "pct_christian_or_none",
-    "score",
 ]
 
 # Columns to exclude from output entirely (nested dicts, internal state)

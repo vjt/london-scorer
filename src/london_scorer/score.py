@@ -14,8 +14,8 @@ from typing import Any
 # ---------------------------------------------------------------------------
 _DIM_MAP: dict[str, tuple[Any, bool]] = {
     "commute":      ("commute_am",                        True),
-    "schools":      (("primary_good", "secondary_good"),  False),
-    "house":        ("epc_band_score",                    False),
+    "schools":      ("school_quality",                    False),  # quality metric, not raw count
+    "house":        ("epc_median_sqm",                    False),  # bigger house = higher score
     "crime":        ("crime_1mi_count",                   True),
     "fttp":         ("fttp_pct",                          False),
     "demographics": ("pct_white",                         False),
