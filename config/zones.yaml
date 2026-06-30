@@ -20,12 +20,11 @@ kx_lines:
 school_radius_km: 2.0             # consider schools within this of the district centroid
 school_phases: [primary, secondary]
 
-# Optional composite score weights (raw columns are always emitted).
-# House is NOT in listings; it is approximated from EPC stock + ONS rents.
+# Weights: big house + good schools + nice area FIRST; commute is a constraint, crime penalises.
 weights:
-  commute: 0.25
-  schools: 0.30
-  house: 0.20        # EPC: median floor area, % detached, rooms
-  crime: 0.10
-  demographics: 0.05
-  fttp: 0.10
+  house: 0.25          # EPC: median floor area sqm (bigger = better)
+  schools: 0.20        # school quality (outstanding + secondary options)
+  crime: 0.30          # STEEP exponential penalty — dominates ranking for unsafe areas
+  demographics: 0.05   # area character
+  commute: 0.05        # constraint not objective
+  fttp: 0.05           # broadband (LA-level)

@@ -1,33 +1,27 @@
-"""Min-max normalise numeric dimensions and compute a weighted score per district."""
+"""Min-max normalise numeric dimensions and compute a weighted score per district.
+
+Crime uses a steep non-linear penalty so high-crime zones are strongly penalised.
+"""
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 
-# ---------------------------------------------------------------------------
-# Dimension → raw column(s) mapping
-# ---------------------------------------------------------------------------
-# Each entry: (column_or_columns, inverted)
-#   column_or_columns: str (single) or tuple[str, str] (summed pair)
-#   inverted: True means lower raw value → higher score
-# ---------------------------------------------------------------------------
-_DIM_MAP: dict[str, tuple[Any, bool]] = {
-    "commute":      ("commute_am",                        True),
-    "schools":      ("school_quality",                    False),  # quality metric, not raw count
-    "house":        ("epc_median_sqm",                    False),  # bigger house = higher score
-    "crime":        ("crime_1mi_count",                   True),
-    "fttp":         ("fttp_pct",                          False),
-    "demographics": ("pct_white",                         False),
+# Dimension → (column, inverted, steep)
+# steep=True uses exponential penalty instead of linear min-max
+_DIM_MAP: dict[str, tuple[Any, bool, bool]] = {
+    "commute":      ("commute_am",        True,  False),
+    "schools":      ("school_quality",     False, False),
+    "house":        ("epc_median_sqm",     False, False),
+    "crime":        ("crime_1mi_count",    True,  True),   # STEEP penalty
+    "fttp":         ("fttp_pct",           False, False),
+    "demographics": ("pct_white",          False, False),
 }
 
 
 def _raw_value(row: dict, col: Any) -> float | None:
-    """Extract the raw numeric value for a dimension from a row.
-
-    For tuple columns the values are summed; any None component is treated as 0
-    only when at least one component is present and non-None.
-    """
     if isinstance(col, tuple):
         values = [row.get(c) for c in col]
         non_none = [v for v in values if v is not None]
@@ -43,30 +37,28 @@ def _raw_value(row: dict, col: Any) -> float | None:
         return None
 
 
-def normalise_and_score(rows: list[dict], weights: dict[str, float]) -> list[dict]:
-    """Min-max normalise each weighted dimension, compute a composite score.
+def _steep_crime_norm(crime_count: float) -> float:
+    """Steep normalisation: low crime (~0-200) scores near 1.0,
+    high crime (~600+) scores near 0.
 
-    Args:
-        rows:    List of district row dicts (mutated in-place with a ``score`` key).
-        weights: Mapping of dimension name → weight (e.g. ``{"commute": 0.25}``).
-                 Only dimensions present in both *weights* and *_DIM_MAP* are used.
-
-    Returns:
-        The same rows list, sorted by ``score`` descending.
+    Uses exponential decay: score = exp(-crime / 200).
+    At 58→0.75, 118→0.55, 200→0.37, 332→0.19, 600→0.05, 1000→0.007, 1500→0.0006.
     """
+    return math.exp(-crime_count / 200.0)
+
+
+def normalise_and_score(rows: list[dict], weights: dict[str, float]) -> list[dict]:
     if not rows:
         return rows
 
-    # Determine which dimensions are active (in both weights map and our dim map)
     active_dims = [d for d in weights if d in _DIM_MAP and weights[d] > 0]
 
-    # For each active dimension, gather the raw values per row
     dim_raw: dict[str, list[float | None]] = {}
     for dim in active_dims:
-        col, _ = _DIM_MAP[dim]
+        col, _, _ = _DIM_MAP[dim]
         dim_raw[dim] = [_raw_value(row, col) for row in rows]
 
-    # Compute min/max per dimension (ignoring None)
+    # min/max for linear dimensions
     dim_stats: dict[str, tuple[float, float]] = {}
     for dim in active_dims:
         vals = [v for v in dim_raw[dim] if v is not None]
@@ -75,7 +67,6 @@ def normalise_and_score(rows: list[dict], weights: dict[str, float]) -> list[dic
         else:
             dim_stats[dim] = (min(vals), max(vals))
 
-    # Normalise and score each row
     for i, row in enumerate(rows):
         total_weight = 0.0
         weighted_sum = 0.0
@@ -83,20 +74,22 @@ def normalise_and_score(rows: list[dict], weights: dict[str, float]) -> list[dic
         for dim in active_dims:
             raw = dim_raw[dim][i]
             if raw is None:
-                continue   # skip this dimension for this row
+                continue
 
-            col, inverted = _DIM_MAP[dim]
-            lo, hi = dim_stats[dim]
+            col, inverted, steep = _DIM_MAP[dim]
             w = weights[dim]
 
-            if hi == lo:
-                # All values equal — assign neutral 0.5 to avoid division by zero
-                norm = 0.5
+            if steep:
+                # Exponential decay — already 0-1 (high crime → near 0)
+                norm = _steep_crime_norm(raw)
             else:
-                norm = (raw - lo) / (hi - lo)
-
-            if inverted:
-                norm = 1.0 - norm
+                lo, hi = dim_stats[dim]
+                if hi == lo:
+                    norm = 0.5
+                else:
+                    norm = (raw - lo) / (hi - lo)
+                if inverted:
+                    norm = 1.0 - norm
 
             weighted_sum += w * norm
             total_weight += w

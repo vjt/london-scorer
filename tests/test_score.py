@@ -10,13 +10,16 @@ def test_commute_inverted_lower_is_better():
     assert a["score"] > b["score"]
 
 
-def test_crime_inverted_lower_is_better():
-    rows = [{"district": "X", "crime_1mi_count": 10},
-            {"district": "Y", "crime_1mi_count": 100}]
+def test_crime_steep_penalty():
+    """Low crime (100) must score MUCH higher than high crime (1000)."""
+    rows = [{"district": "X", "crime_1mi_count": 100},
+            {"district": "Y", "crime_1mi_count": 1000}]
     out = score.normalise_and_score(rows, {"crime": 1.0})
     x = next(r for r in out if r["district"] == "X")
     y = next(r for r in out if r["district"] == "Y")
     assert x["score"] > y["score"]
+    assert x["score"] > 0.5   # 100 crimes should score high
+    assert y["score"] < 0.1   # 1000 crimes should score very low
 
 
 def test_equal_values_no_crash():

@@ -21,10 +21,12 @@ _SEED_OUTCODES = [
 # Non-residential or junk outcodes to always exclude
 _JUNK_OUTCODES = {"N1C", "N1P", "N81", "NW26"}
 
-# Override incorrect LA mappings (postcodes.io sometimes picks the wrong LA for an outcode)
+# Override incorrect LA mappings (postcodes.io sometimes picks the wrong LA)
 _LA_OVERRIDES = {
     "AL3": "St Albans",
     "AL4": "St Albans",
+    "AL5": "St Albans",   # Harpenden IS St Albans district, NOT Central Bedfordshire
+    "SG6": "North Hertfordshire",
 }
 
 # For seeds with wrong centroid, use a known station's coords for commute
