@@ -5,7 +5,7 @@ destination: "King's Cross"        # TfL station; resolved to a StopPoint id
 am_arrive_by: "09:30"              # be at the KX office by this time
 pm_depart_at: "17:30"             # leave KX at this time
 office_walk_min: 12               # KX station -> desk, added when a journey ends at the station
-commute_threshold_min: 60         # keep districts with door-to-door <= this (AM)
+commute_threshold_min: 75         # keep districts with door-to-door <= this (AM) — nonstop filter does the rest
 north_only: true                  # keep only stations north of KX (latitude >= KX)
 
 # Lines that serve King's Cross / St Pancras / Moorgate (seed for station discovery)
@@ -20,11 +20,14 @@ kx_lines:
 school_radius_km: 2.0             # consider schools within this of the district centroid
 school_phases: [primary, secondary]
 
-# Weights: big house + good schools + nice area FIRST; commute is a constraint, crime penalises.
+# Weights: SCHOOLS + CRIME together dominate. Schools won't override safety.
+# 8 dimensions, sum = 1.00.
 weights:
-  house: 0.25          # EPC: median floor area sqm (bigger = better)
   schools: 0.20        # school quality (outstanding + secondary options)
-  crime: 0.30          # STEEP exponential penalty — dominates ranking for unsafe areas
-  demographics: 0.05   # area character
-  commute: 0.05        # constraint not objective
-  fttp: 0.05           # broadband (LA-level)
+  school_density: 0.10 # raw count of good+outstanding primaries — catchment probability
+  crime: 0.25          # exponential penalty exp(-c/150) — strong but not absolute
+  commute: 0.15        # quality of life — KX door-to-door nonstop
+  demographics: 0.10   # area character (family-friendly, community)
+  house: 0.10          # EPC: median floor area sqm
+  gp: 0.05             # GP coverage — capped at 5
+  fttp: 0.05           # broadband for remote work

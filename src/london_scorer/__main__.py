@@ -8,7 +8,7 @@ Runs the full pipeline:
 import sys
 from pathlib import Path
 from . import config, discovery, geo, score, output
-from .fetchers import crime, schools, epc, demographics, broadband
+from .fetchers import crime, schools, epc, demographics, broadband, gp
 
 
 _OUT_DIR = Path("out")
@@ -82,6 +82,7 @@ def main() -> None:
         ("epc",          lambda r: epc.fetch(r, epc_token)),
         ("demographics", lambda r: demographics.fetch(r, lambda la: _la_code_lookup(la, r.get("district")))),
         ("broadband",    lambda r: broadband.fetch(r, broadband_df)),
+        ("gp",           lambda r: gp.fetch(r)),
     ]
 
     for i, row in enumerate(rows):
@@ -97,7 +98,8 @@ def main() -> None:
     # Fill gaps with LA-level medians (honest: for demographics + FTTP)   #
     # ------------------------------------------------------------------ #
     _fill_cols = ["fttp_pct", "pct_white", "pct_christian_or_none",
-                  "epc_median_sqm", "pct_detached", "median_rooms", "school_quality"]
+                  "epc_median_sqm", "pct_detached", "median_rooms", "school_quality",
+                  "school_density", "gp_accepting_pct", "gp_coverage"]
     for col in _fill_cols:
         la_vals = {}
         for row in rows:

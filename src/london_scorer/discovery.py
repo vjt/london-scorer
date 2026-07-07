@@ -27,6 +27,10 @@ _LA_OVERRIDES = {
     "AL4": "St Albans",
     "AL5": "St Albans",   # Harpenden IS St Albans district, NOT Central Bedfordshire
     "SG6": "North Hertfordshire",
+    "MK3": "Milton Keynes",
+    "MK8": "Milton Keynes",
+    "MK10": "Milton Keynes",
+    "MK14": "Milton Keynes",
 }
 
 # For seeds with wrong centroid, use a known station's coords for commute
@@ -34,6 +38,23 @@ _SEED_STATION_COORDS = {
     "AL3": (51.7505, -0.3414),   # St Albans City station
     "AL4": (51.7505, -0.3414),   # St Albans City (AL4 is nearby)
     "AL9": (51.7211, -0.1084),   # Brookmans Park station
+    # Milton Keynes — all use MK Central (Avanti West Coast to Euston)
+    "MK1": (52.0343, -0.7744),
+    "MK2": (52.0343, -0.7744),
+    "MK3": (52.0343, -0.7744),
+    "MK4": (52.0343, -0.7744),
+    "MK5": (52.0343, -0.7744),
+    "MK6": (52.0343, -0.7744),
+    "MK7": (52.0343, -0.7744),
+    "MK8": (52.0343, -0.7744),
+    "MK9": (52.0343, -0.7744),
+    "MK10": (52.0343, -0.7744),
+    "MK11": (52.0343, -0.7744),
+    "MK12": (52.0343, -0.7744),
+    "MK13": (52.0343, -0.7744),
+    "MK14": (52.0343, -0.7744),
+    "MK15": (52.0343, -0.7744),
+    "MK16": (52.0343, -0.7744),
 }
 
 
@@ -43,6 +64,16 @@ def station_outcode(lat, lon):
                       cache_key=f"oc:{lat},{lon}")
     res = r.get("result") or []
     return res[0]["outcode"] if res else None
+
+
+def nearby_outcodes(lat, lon, radius_km=5):
+    """Get all outcodes within radius_km of a point."""
+    # postcodes.io /outcodes?lon=...&lat=...&radius= returns nearby outcodes
+    r = http.get_json("https://api.postcodes.io/outcodes",
+                      params={"lat": lat, "lon": lon,
+                              "limit": 20, "radius": int(radius_km * 1000)},
+                      cache_key=f"nearby_oc:{lat:.4f},{lon:.4f}:{radius_km}")
+    return [item["outcode"] for item in (r.get("result") or [])]
 
 
 def _resolve_district(oc, cfg, app_key, date, force=False):
@@ -88,14 +119,28 @@ def discover(cfg, app_key, date):
     all_stations = stations.north_stations(cfg["kx_lines"], app_key)
     print(f"  Enumerating {len(all_stations)} stations north of KX …")
     for s in all_stations:
-        oc = station_outcode(s["lat"], s["lon"])
-        if not oc or oc in seen or oc in _JUNK_OUTCODES:
-            continue
-        seen.add(oc)
-        row = _resolve_district(oc, cfg, app_key, date, force=False)
-        if row:
-            out.append(row)
-            discovered.add(oc)
+        dist_from_kx = stations._haversine_km(
+            stations.KX["lat"], stations.KX["lon"], s["lat"], s["lon"])
+
+        # For far-out stations (>30km), also grab nearby outcodes (5km)
+        # — one station like MK Central should discover all MK1-MK16
+        # For inner stations, just use the station's own outcode
+        if dist_from_kx > 30:
+            outcodes = nearby_outcodes(s["lat"], s["lon"], radius_km=5)
+        else:
+            outcodes = []
+        if not outcodes:
+            oc = station_outcode(s["lat"], s["lon"])
+            outcodes = [oc] if oc else []
+
+        for oc in outcodes:
+            if not oc or oc in seen or oc in _JUNK_OUTCODES:
+                continue
+            seen.add(oc)
+            row = _resolve_district(oc, cfg, app_key, date, force=False)
+            if row:
+                out.append(row)
+                discovered.add(oc)
 
     # 2) Seed backstop — ALWAYS included
     seed_added = 0

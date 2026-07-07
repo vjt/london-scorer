@@ -24,7 +24,7 @@ def _haversine_km(lat1, lon1, lat2, lon2):
     return R * 2 * atan2(sqrt(a), sqrt(1 - a))
 
 
-def load_national_rail_stations(csv_path=None, max_km=65):
+def load_national_rail_stations(csv_path=None, max_km=85):
     """Load all GB railway stations north of KX within *max_km* from a CSV.
 
     Returns list[{"id": str, "name": str, "lat": float, "lon": float}].
@@ -79,7 +79,7 @@ def line_stations(line_id, app_key):
     return out
 
 
-def north_stations(lines, app_key, stations_csv=None, max_km=65):
+def north_stations(lines, app_key, stations_csv=None, max_km=85):
     """Union of TfL StopPoints (for configured lines) + national rail CSV.
 
     Deduplicates by name proximity (stations within 200m are considered same).

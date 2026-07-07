@@ -1,6 +1,19 @@
 from . import http
 from .stations import KX
 
+
+def _is_nonstop(journey: dict) -> bool:
+    """True if this journey has exactly one rail/tube leg (direct train to KX).
+
+    A bus leg to the station doesn't count as a change — only the
+    rail/tube ride to KX must be nonstop.
+    """
+    rail_legs = [l for l in journey.get("legs", [])
+                 if l.get("mode", {}).get("name") in
+                 ("national-rail", "tube", "elizabeth-line", "overground", "dlr")]
+    return len(rail_legs) == 1
+
+
 def journey_minutes(from_lat, from_lon, app_key, when, time_is, date):
     url = f"https://api.tfl.gov.uk/Journey/JourneyResults/{from_lat},{from_lon}/to/{KX['lat']},{KX['lon']}"
     try:
@@ -10,7 +23,12 @@ def journey_minutes(from_lat, from_lon, app_key, when, time_is, date):
     except Exception:
         return None
     js = data.get("journeys") or []
-    return min((j["duration"] for j in js), default=None)
+    # Prefer nonstop (walk → train → walk) journeys only
+    nonstop = [j["duration"] for j in js if _is_nonstop(j)]
+    if nonstop:
+        return min(nonstop)
+    # No nonstop available — return None (zone will get penalised)
+    return None
 
 def door_to_door(lat, lon, app_key, cfg, date):
     walk = cfg["office_walk_min"]

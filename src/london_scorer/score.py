@@ -12,12 +12,14 @@ from typing import Any
 # Dimension → (column, inverted, steep)
 # steep=True uses exponential penalty instead of linear min-max
 _DIM_MAP: dict[str, tuple[Any, bool, bool]] = {
-    "commute":      ("commute_am",        True,  False),
-    "schools":      ("school_quality",     False, False),
-    "house":        ("epc_median_sqm",     False, False),
-    "crime":        ("crime_1mi_count",    True,  True),   # STEEP penalty
-    "fttp":         ("fttp_pct",           False, False),
-    "demographics": ("pct_white",          False, False),
+    "commute":        ("commute_am",        True,  False),
+    "schools":        ("school_quality",     False, False),
+    "school_density": ("school_density",     False, False),  # raw good+outstanding primary count
+    "house":          ("epc_median_sqm",     False, False),
+    "crime":          ("crime_1mi_count",    True,  True),   # STEEP penalty
+    "fttp":           ("fttp_pct",           False, False),
+    "demographics":   ("pct_white",          False, False),
+    "gp":             ("gp_coverage",       False, False),  # GP practices capped at 5 (diminishing returns)
 }
 
 
@@ -38,13 +40,13 @@ def _raw_value(row: dict, col: Any) -> float | None:
 
 
 def _steep_crime_norm(crime_count: float) -> float:
-    """Steep normalisation: low crime (~0-200) scores near 1.0,
-    high crime (~600+) scores near 0.
+    """Steep normalisation: low crime (~0-150) scores near 1.0,
+    high crime (~500+) scores near 0.
 
-    Uses exponential decay: score = exp(-crime / 200).
-    At 58→0.75, 118→0.55, 200→0.37, 332→0.19, 600→0.05, 1000→0.007, 1500→0.0006.
+    Uses exponential decay: score = exp(-crime / 150).
+    At 58→0.68, 118→0.45, 200→0.26, 332→0.11, 600→0.02, 1145→0.0005.
     """
-    return math.exp(-crime_count / 200.0)
+    return math.exp(-crime_count / 150.0)
 
 
 def normalise_and_score(rows: list[dict], weights: dict[str, float]) -> list[dict]:

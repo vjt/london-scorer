@@ -55,6 +55,9 @@ def fetch(row, schools_df):
       school_quality = 3 × has_outstanding + 2 × has_good_secondary + 1 × has_good_primary
     This rewards QUALITY (having at least one Outstanding school and secondary
     options) over raw COUNT (which favours dense urban areas).
+
+    Also returns school_density: raw count of Good+Outstanding primaries (uncapped)
+    — higher density = higher probability of being in a catchment zone.
     """
     district = row["district"]
     all_schools = schools_df[schools_df["outcode"] == district]
@@ -71,9 +74,19 @@ def fetch(row, schools_df):
     # Composite: outstanding is worth a lot, secondary options matter, primary caps
     school_quality = 3.0 * has_outstanding + 2.0 * has_good_secondary + 1.0 * has_good_primary
 
+    # Density: raw count of Good+Outstanding primaries (uncapped)
+    # More good schools nearby = higher chance of being in a catchment zone
+    primary_total = int((all_schools["phase"] == "primary").sum())
+    primary_outstanding = int(
+        ((all_schools["phase"] == "primary") & (all_schools["rating"] == "Outstanding")).sum()
+    )
+
     return {
         "primary_good": primary_good,
         "secondary_good": secondary_good,
         "has_outstanding": has_outstanding,
         "school_quality": round(school_quality, 1),
+        "school_density": primary_good,             # raw count, not capped
+        "primary_total": primary_total,
+        "primary_outstanding": primary_outstanding,
     }
