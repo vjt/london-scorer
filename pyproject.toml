@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "london-scorer"
 version = "0.0.0"
-description = "Rank postcode districts north of King's Cross for a relocation recce"
+description = "Rank postcode districts north of King's Cross by commute, schools, housing and crime"
 requires-python = ">=3.10"
 dependencies = [
     "requests>=2.31",

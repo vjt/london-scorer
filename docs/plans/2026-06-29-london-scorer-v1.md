@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Produce a ranked scorecard of postcode districts north of King's Cross to visit on a relocation recce, scored on real AM/PM commute, schools, housing stock, crime, demographics and broadband — from open data only.
+**Goal:** Produce a ranked scorecard of postcode districts north of King's Cross to visit, scored on real AM/PM commute, schools, housing stock, crime, demographics and broadband — from open data only.
 
 **Architecture:** A small Python package. District *discovery* derives the candidate set from KX-serving stations filtered by real journey-planner times; per-district *fetchers* (one module per open-data source, all cache-backed) fill each dimension; an *aggregate*/*score* stage joins and ranks; an *output* stage writes Markdown + CSV. All network I/O goes through one cached HTTP helper so tests run offline by monkeypatching it.
 

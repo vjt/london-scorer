@@ -3,7 +3,7 @@
 ## Purpose
 
 Rank **postcode districts north of King's Cross (KX)** by how worth-visiting they are
-for a family relocation recce. Primary dimensions: **real AM/PM commute** to KX and
+for a house hunt. Primary dimensions: **real AM/PM commute** to KX and
 **schools**; plus **housing stock**, **crime**, **demographics** and **broadband (FTTP)**.
 
 **It answers "which areas should we go look at?" — NOT "which house should we rent?".**

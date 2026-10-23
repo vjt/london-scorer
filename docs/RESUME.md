@@ -9,7 +9,7 @@ This repository is **self-contained** and **implemented** (v1 complete + extende
 ## What it does
 
 Autonomously **discovers** UK postcode districts north of King's Cross (no hardcoded
-whitelist) and scores them for a family relocation to a Meta Kings Cross commute.
+whitelist) and scores them for a commute to Meta King's Cross.
 
 ## Run it
 
